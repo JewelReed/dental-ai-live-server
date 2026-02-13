@@ -1,6 +1,6 @@
 import express from "express";
 import http from "http";
-import WebSocket, { WebSocketServer } from "ws";
+import WebSocket from "ws";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -8,43 +8,63 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-const wss = new WebSocketServer({ server });
+const PORT = process.env.PORT || 3000;
 
-wss.on("connection", (ws) => {
+/**
+ * Basic health check route
+ * (So Railway & browser don't show errors)
+ */
+app.get("/", (req, res) => {
+  res.send("Dental AI Live Server Running");
+});
+
+/**
+ * WebSocket Server for Twilio Media Streams
+ */
+const wss = new WebSocket.Server({ server });
+
+wss.on("connection", (twilioSocket) => {
   console.log("Twilio connected");
 
-  const openai = new WebSocket(
+  /**
+   * Connect to OpenAI Realtime API
+   */
+  const openaiSocket = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview",
     {
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "OpenAI-Beta": "realtime=v1"
-      }
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "OpenAI-Beta": "realtime=v1",
+      },
     }
   );
 
-  openai.on("open", () => {
-    console.log("Connected to OpenAI");
+  openaiSocket.on("open", () => {
+    console.log("Connected to OpenAI Realtime");
   });
 
-  ws.on("message", (msg) => {
-    if (openai.readyState === WebSocket.OPEN) {
-      openai.send(msg);
+  openaiSocket.on("message", (message) => {
+    if (twilioSocket.readyState === WebSocket.OPEN) {
+      twilioSocket.send(message);
     }
   });
 
-  openai.on("message", (msg) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
+  twilioSocket.on("message", (message) => {
+    if (openaiSocket.readyState === WebSocket.OPEN) {
+      openaiSocket.send(message);
     }
   });
 
-  ws.on("close", () => {
-    openai.close();
+  twilioSocket.on("close", () => {
+    console.log("Twilio disconnected");
+    openaiSocket.close();
+  });
+
+  openaiSocket.on("close", () => {
+    console.log("OpenAI disconnected");
+    twilioSocket.close();
   });
 });
-
-const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
