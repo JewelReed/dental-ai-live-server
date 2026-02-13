@@ -1,6 +1,7 @@
 {
   "name": "dental-ai-live-server",
   "version": "1.0.0",
+  "description": "Twilio ↔ OpenAI Realtime AI Voice Server",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -15,4 +16,3 @@
     "ws": "^8.13.0"
   }
 }
-
