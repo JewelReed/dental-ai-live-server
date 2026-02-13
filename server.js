@@ -1,7 +1,7 @@
 import express from "express";
 import http from "http";
-import WebSocket from "ws";
 import dotenv from "dotenv";
+import WebSocket, { WebSocketServer } from "ws";
 
 dotenv.config();
 
@@ -10,25 +10,18 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 
-/**
- * Basic health check route
- * (So Railway & browser don't show errors)
- */
 app.get("/", (req, res) => {
   res.send("Dental AI Live Server Running");
 });
 
-/**
- * WebSocket Server for Twilio Media Streams
- */
-const wss = new WebSocket.Server({ server });
+/*
+  Correct WebSocket server initialization
+*/
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", (twilioSocket) => {
   console.log("Twilio connected");
 
-  /**
-   * Connect to OpenAI Realtime API
-   */
   const openaiSocket = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview",
     {
@@ -40,7 +33,7 @@ wss.on("connection", (twilioSocket) => {
   );
 
   openaiSocket.on("open", () => {
-    console.log("Connected to OpenAI Realtime");
+    console.log("Connected to OpenAI");
   });
 
   openaiSocket.on("message", (message) => {
@@ -69,4 +62,3 @@ wss.on("connection", (twilioSocket) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
