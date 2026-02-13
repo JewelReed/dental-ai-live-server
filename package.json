@@ -2,9 +2,17 @@
   "name": "dental-ai-live-server",
   "version": "1.0.0",
   "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
-    "dotenv": "^16.0.0",
+    "dotenv": "^16.4.0",
     "express": "^4.18.2",
     "ws": "^8.13.0"
   }
 }
+
