@@ -89,26 +89,35 @@ wss.on("connection", (twilioSocket) => {
   twilioSocket.on("message", (message) => {
   const data = JSON.parse(message.toString());
 
+  twilioSocket.on("message", (message) => {
+  const data = JSON.parse(message.toString());
+
+  // Append audio packets continuously
   if (data.event === "media") {
-  if (openaiSocket.readyState === WebSocket.OPEN) {
-
-    // 1. Append audio
-    openaiSocket.send(JSON.stringify({
-      type: "input_audio_buffer.append",
-      audio: data.media.payload
-    }));
-
-    // 2. Commit buffer
-    openaiSocket.send(JSON.stringify({
-      type: "input_audio_buffer.commit"
-    }));
-
-    // 3. Ask for response
-    openaiSocket.send(JSON.stringify({
-      type: "response.create"
-    }));
+    if (openaiSocket.readyState === WebSocket.OPEN) {
+      openaiSocket.send(JSON.stringify({
+        type: "input_audio_buffer.append",
+        audio: data.media.payload
+      }));
+    }
   }
-}
+
+  // When Twilio finishes speaking, THEN generate response
+  if (data.event === "stop") {
+    console.log("Twilio finished speaking");
+
+    if (openaiSocket.readyState === WebSocket.OPEN) {
+      openaiSocket.send(JSON.stringify({
+        type: "input_audio_buffer.commit"
+      }));
+
+      openaiSocket.send(JSON.stringify({
+        type: "response.create"
+      }));
+    }
+  }
+});
+
 
 
 
