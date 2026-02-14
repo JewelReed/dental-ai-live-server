@@ -52,7 +52,7 @@ wss.on("connection", (twilioSocket) => {
     }
   );
 
-  let silenceTimer;
+  let silenceTimer = null;
 
   /* ================================
      OpenAI Events
@@ -75,8 +75,8 @@ wss.on("connection", (twilioSocket) => {
 
   openaiSocket.on("message", (message) => {
     const data = JSON.parse(message.toString());
-    console.log("OpenAI Event:", data.type);
 
+    // Only forward audio deltas to Twilio
     if (data.type === "response.output_audio.delta") {
       if (twilioSocket.readyState === WebSocket.OPEN) {
         twilioSocket.send(JSON.stringify({
@@ -113,22 +113,29 @@ wss.on("connection", (twilioSocket) => {
         }));
       }
 
-      clearTimeout(silenceTimer);
+      // Reset silence timer
+      if (silenceTimer) clearTimeout(silenceTimer);
 
       silenceTimer = setTimeout(() => {
-        console.log("User stopped speaking — generating response");
 
         if (openaiSocket.readyState === WebSocket.OPEN) {
+
           openaiSocket.send(JSON.stringify({
             type: "input_audio_buffer.commit"
           }));
 
           openaiSocket.send(JSON.stringify({
-            type: "response.create"
+            type: "response.create",
+            response: {
+              modalities: ["audio"],
+              instructions:
+                "Respond verbally as a dental office receptionist."
+            }
           }));
+
         }
 
-      }, 1000);
+      }, 1000); // 1 second silence detection
     }
 
     if (data.event === "stop") {
