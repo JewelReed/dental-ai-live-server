@@ -57,8 +57,18 @@ wss.on("connection", (twilioSocket) => {
   );
 
   openaiSocket.on("open", () => {
-    console.log("Connected to OpenAI");
-  });
+  console.log("Connected to OpenAI");
+
+  openaiSocket.send(JSON.stringify({
+    type: "session.update",
+    session: {
+      instructions: "You are a professional dental office receptionist. Speak clearly, politely, and help patients schedule appointments.",
+      voice: "alloy",
+      input_audio_format: "g711_ulaw",
+      output_audio_format: "g711_ulaw"
+    }
+  }));
+});
 
   openaiSocket.on("message", (message) => {
     if (twilioSocket.readyState === WebSocket.OPEN) {
