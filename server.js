@@ -10,12 +10,36 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 
+/*
+  Required for Twilio POST requests
+*/
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+
+/*
+  Health check (browser test)
+*/
 app.get("/", (req, res) => {
   res.send("Dental AI Live Server Running");
 });
 
 /*
-  Correct WebSocket server initialization
+  REQUIRED: Twilio webhook endpoint
+  Twilio will POST here first
+*/
+app.post("/", (req, res) => {
+  res.set("Content-Type", "text/xml");
+  res.send(`
+    <Response>
+      <Connect>
+        <Stream url="wss://${req.headers.host}" />
+      </Connect>
+    </Response>
+  `);
+});
+
+/*
+  WebSocket server for Twilio Media Streams
 */
 const wss = new WebSocketServer({ server });
 
@@ -57,8 +81,17 @@ wss.on("connection", (twilioSocket) => {
     console.log("OpenAI disconnected");
     twilioSocket.close();
   });
+
+  openaiSocket.on("error", (err) => {
+    console.error("OpenAI Error:", err.message);
+  });
+
+  twilioSocket.on("error", (err) => {
+    console.error("Twilio Socket Error:", err.message);
+  });
 });
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
