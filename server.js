@@ -71,16 +71,39 @@ wss.on("connection", (twilioSocket) => {
 });
 
   openaiSocket.on("message", (message) => {
+  const data = JSON.parse(message.toString());
+
+  if (data.type === "response.output_audio.delta") {
     if (twilioSocket.readyState === WebSocket.OPEN) {
-      twilioSocket.send(message);
+      twilioSocket.send(JSON.stringify({
+        event: "media",
+        media: {
+          payload: data.delta
+        }
+      }));
     }
-  });
+  }
+});
+
 
   twilioSocket.on("message", (message) => {
+  const data = JSON.parse(message.toString());
+
+  if (data.event === "media") {
     if (openaiSocket.readyState === WebSocket.OPEN) {
-      openaiSocket.send(message);
+      openaiSocket.send(JSON.stringify({
+        type: "input_audio_buffer.append",
+        audio: data.media.payload
+      }));
     }
-  });
+  }
+
+  if (data.event === "stop") {
+    console.log("Twilio stream stopped");
+    openaiSocket.close();
+  }
+});
+
 
   twilioSocket.on("close", () => {
     console.log("Twilio disconnected");
