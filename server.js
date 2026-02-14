@@ -70,9 +70,12 @@ wss.on("connection", (twilioSocket) => {
   }));
 });
 
-  openaiSocket.on("message", (message) => {
+openaiSocket.on("message", (message) => {
   const data = JSON.parse(message.toString());
 
+  console.log("OpenAI Event:", data.type);
+
+  // Forward audio chunks
   if (data.type === "response.output_audio.delta") {
     if (twilioSocket.readyState === WebSocket.OPEN) {
       twilioSocket.send(JSON.stringify({
@@ -83,7 +86,16 @@ wss.on("connection", (twilioSocket) => {
       }));
     }
   }
+
+  if (data.type === "response.completed") {
+    console.log("OpenAI finished response");
+  }
+
+  if (data.type === "error") {
+    console.error("OpenAI Error:", data);
+  }
 });
+
 
 
   twilioSocket.on("message", (message) => {
