@@ -98,21 +98,45 @@ openaiSocket.on("message", (message) => {
 
 
 
-  twilioSocket.on("message", (message) => {
+  let silenceTimer;
+
+twilioSocket.on("message", (message) => {
   const data = JSON.parse(message.toString());
 
-  twilioSocket.on("message", (message) => {
-  const data = JSON.parse(message.toString());
-
-  // Append audio packets continuously
   if (data.event === "media") {
+
     if (openaiSocket.readyState === WebSocket.OPEN) {
       openaiSocket.send(JSON.stringify({
         type: "input_audio_buffer.append",
         audio: data.media.payload
       }));
     }
+
+    // Reset silence timer on every audio packet
+    clearTimeout(silenceTimer);
+
+    silenceTimer = setTimeout(() => {
+      console.log("User stopped speaking — generating response");
+
+      if (openaiSocket.readyState === WebSocket.OPEN) {
+        openaiSocket.send(JSON.stringify({
+          type: "input_audio_buffer.commit"
+        }));
+
+        openaiSocket.send(JSON.stringify({
+          type: "response.create"
+        }));
+      }
+
+    }, 1000); // 1 second silence detection
   }
+
+  if (data.event === "stop") {
+    console.log("Twilio call ended");
+    openaiSocket.close();
+  }
+});
+
 
   // When Twilio finishes speaking, THEN generate response
   if (data.event === "stop") {
