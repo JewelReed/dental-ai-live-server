@@ -44,6 +44,8 @@ app.post("/", (req, res) => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (twilioSocket) => {
+  wss.on("connection", (twilioSocket) => {
+
   twilioSocket.setMaxListeners(0);
 
   console.log("Twilio connected");
@@ -58,18 +60,84 @@ wss.on("connection", (twilioSocket) => {
     }
   );
 
-  openaiSocket.on("open", () => {
-  console.log("Connected to OpenAI");
+  let silenceTimer;
 
-  openaiSocket.send(JSON.stringify({
-    type: "session.update",
-    session: {
-      instructions: "You are a professional dental office receptionist. Speak clearly, politely, and help patients schedule appointments.",
-      voice: "alloy",
-      input_audio_format: "g711_ulaw",
-      output_audio_format: "g711_ulaw"
+  openaiSocket.on("open", () => {
+    console.log("Connected to OpenAI");
+
+    openaiSocket.send(JSON.stringify({
+      type: "session.update",
+      session: {
+        instructions: "You are a professional dental office receptionist. Speak clearly and politely.",
+        voice: "alloy",
+        input_audio_format: "g711_ulaw",
+        output_audio_format: "g711_ulaw"
+      }
+    }));
+  });
+
+  openaiSocket.on("message", (message) => {
+    const data = JSON.parse(message.toString());
+
+    console.log("OpenAI Event:", data.type);
+
+    if (data.type === "response.output_audio.delta") {
+      if (twilioSocket.readyState === WebSocket.OPEN) {
+        twilioSocket.send(JSON.stringify({
+          event: "media",
+          media: {
+            payload: data.delta
+          }
+        }));
+      }
     }
-  }));
+  });
+
+  twilioSocket.on("message", (message) => {
+    const data = JSON.parse(message.toString());
+
+    if (data.event === "media") {
+
+      if (openaiSocket.readyState === WebSocket.OPEN) {
+        openaiSocket.send(JSON.stringify({
+          type: "input_audio_buffer.append",
+          audio: data.media.payload
+        }));
+      }
+
+      clearTimeout(silenceTimer);
+
+      silenceTimer = setTimeout(() => {
+        console.log("User stopped speaking — generating response");
+
+        if (openaiSocket.readyState === WebSocket.OPEN) {
+          openaiSocket.send(JSON.stringify({
+            type: "input_audio_buffer.commit"
+          }));
+
+          openaiSocket.send(JSON.stringify({
+            type: "response.create"
+          }));
+        }
+
+      }, 1000);
+    }
+
+    if (data.event === "stop") {
+      console.log("Twilio call ended");
+      openaiSocket.close();
+    }
+  });
+
+  twilioSocket.on("close", () => {
+    console.log("Twilio disconnected");
+    openaiSocket.close();
+  });
+
+  openaiSocket.on("close", () => {
+    console.log("OpenAI disconnected");
+  });
+
 });
 
 openaiSocket.on("message", (message) => {
