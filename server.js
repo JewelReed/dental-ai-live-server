@@ -7,11 +7,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 300;
-
-/* ================================
-   Express Setup
-================================ */
+const PORT = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -31,15 +27,10 @@ app.post("/", (req, res) => {
   `);
 });
 
-/* ================================
-   WebSocket Server
-================================ */
-
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (twilioSocket) => {
 
-  twilioSocket.setMaxListeners(0);
   console.log("Twilio connected");
 
   const openaiSocket = new WebSocket(
@@ -54,10 +45,6 @@ wss.on("connection", (twilioSocket) => {
 
   let silenceTimer = null;
 
-  /* ================================
-     OpenAI Events
-  ================================= */
-
   openaiSocket.on("open", () => {
     console.log("Connected to OpenAI");
 
@@ -65,7 +52,7 @@ wss.on("connection", (twilioSocket) => {
       type: "session.update",
       session: {
         instructions:
-          "You are a professional dental office receptionist. Speak clearly and politely.",
+          "You are a professional dental office receptionist.",
         voice: "alloy",
         input_audio_format: "g711_ulaw",
         output_audio_format: "g711_ulaw"
@@ -76,30 +63,15 @@ wss.on("connection", (twilioSocket) => {
   openaiSocket.on("message", (message) => {
     const data = JSON.parse(message.toString());
 
-    // Only forward audio deltas to Twilio
     if (data.type === "response.output_audio.delta") {
       if (twilioSocket.readyState === WebSocket.OPEN) {
         twilioSocket.send(JSON.stringify({
           event: "media",
-          media: {
-            payload: data.delta
-          }
+          media: { payload: data.delta }
         }));
       }
     }
   });
-
-  openaiSocket.on("close", () => {
-    console.log("OpenAI disconnected");
-  });
-
-  openaiSocket.on("error", (err) => {
-    console.error("OpenAI Error:", err.message);
-  });
-
-  /* ================================
-     Twilio Events
-  ================================= */
 
   twilioSocket.on("message", (message) => {
     const data = JSON.parse(message.toString());
@@ -113,7 +85,6 @@ wss.on("connection", (twilioSocket) => {
         }));
       }
 
-      // Reset silence timer
       if (silenceTimer) clearTimeout(silenceTimer);
 
       silenceTimer = setTimeout(() => {
@@ -127,38 +98,27 @@ wss.on("connection", (twilioSocket) => {
           openaiSocket.send(JSON.stringify({
             type: "response.create",
             response: {
-              modalities: ["audio"],
-              instructions:
-                "Respond verbally as a dental office receptionist."
+              modalities: ["text", "audio"],
+              output_audio_format: "g711_ulaw"
             }
           }));
-
         }
 
-      }, 1000); // 1 second silence detection
+      }, 1200);
     }
 
     if (data.event === "stop") {
-      console.log("Twilio call ended");
       openaiSocket.close();
     }
   });
 
   twilioSocket.on("close", () => {
-    console.log("Twilio disconnected");
     openaiSocket.close();
   });
 
-  twilioSocket.on("error", (err) => {
-    console.error("Twilio Socket Error:", err.message);
-  });
-
 });
-
-/* ================================
-   Start Server
-================================ */
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
