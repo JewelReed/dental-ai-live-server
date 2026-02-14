@@ -90,13 +90,21 @@ wss.on("connection", (twilioSocket) => {
   const data = JSON.parse(message.toString());
 
   if (data.event === "media") {
-    if (openaiSocket.readyState === WebSocket.OPEN) {
-      openaiSocket.send(JSON.stringify({
-        type: "input_audio_buffer.append",
-        audio: data.media.payload
-      }));
-    }
+  if (openaiSocket.readyState === WebSocket.OPEN) {
+
+    // Send audio chunk to OpenAI
+    openaiSocket.send(JSON.stringify({
+      type: "input_audio_buffer.append",
+      audio: data.media.payload
+    }));
+
+    // Tell OpenAI to generate a response
+    openaiSocket.send(JSON.stringify({
+      type: "response.create"
+    }));
   }
+}
+
 
   if (data.event === "stop") {
     console.log("Twilio stream stopped");
