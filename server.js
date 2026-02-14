@@ -92,18 +92,24 @@ wss.on("connection", (twilioSocket) => {
   if (data.event === "media") {
   if (openaiSocket.readyState === WebSocket.OPEN) {
 
-    // Send audio chunk to OpenAI
+    // 1. Append audio
     openaiSocket.send(JSON.stringify({
       type: "input_audio_buffer.append",
       audio: data.media.payload
     }));
 
-    // Tell OpenAI to generate a response
+    // 2. Commit buffer
+    openaiSocket.send(JSON.stringify({
+      type: "input_audio_buffer.commit"
+    }));
+
+    // 3. Ask for response
     openaiSocket.send(JSON.stringify({
       type: "response.create"
     }));
   }
 }
+
 
 
   if (data.event === "stop") {
