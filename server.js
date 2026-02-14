@@ -44,6 +44,8 @@ app.post("/", (req, res) => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (twilioSocket) => {
+  twilioSocket.setMaxListeners(0);
+
   console.log("Twilio connected");
 
   const openaiSocket = new WebSocket(
