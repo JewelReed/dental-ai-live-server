@@ -62,6 +62,19 @@ wss.on("connection", (twilioSocket) => {
 
     console.log("OpenAI Event:", data.type);
 
+    // 🔥 When speech is committed, request audio response
+    if (data.type === "input_audio_buffer.committed") {
+
+      openaiSocket.send(JSON.stringify({
+        type: "response.create",
+        response: {
+          modalities: ["audio"],
+          output_audio_format: "g711_ulaw"
+        }
+      }));
+    }
+
+    // 🔥 Forward audio to Twilio
     if (data.type === "response.output_audio.delta") {
       if (twilioSocket.readyState === WebSocket.OPEN) {
         twilioSocket.send(JSON.stringify({
@@ -99,5 +112,4 @@ wss.on("connection", (twilioSocket) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
 
